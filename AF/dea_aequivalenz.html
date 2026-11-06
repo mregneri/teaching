@@ -1,0 +1,724 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Äquivalenz zweier DEAs – Table-Filling</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+
+:root{
+  --ink:#0f172a;--muted:#64748b;--line:#e2e8f0;--soft:#f8fafc;
+  --node:#475569;
+  --r0:#1d3557;--r1:#0f766e;--r2:#c2410c;--r3:#7e22ce;
+  --cur:#d97706;--curfill:#b45309;
+  --succ:#6d28d9;--succsoft:#c4b5fd;
+  --eq:#15803d;--eqbg:#dcfce7;
+  --c0:#2563eb;--c1:#be185d;--c2:#0f766e;--c3:#1d3557;
+}
+*{box-sizing:border-box}
+body{margin:0;font-family:Inter,system-ui,-apple-system,"Segoe UI",sans-serif;color:var(--ink);background:#fff;-webkit-font-smoothing:antialiased}
+header{padding:18px 28px 14px;display:flex;align-items:flex-end;justify-content:space-between;gap:12px 24px;flex-wrap:wrap;border-bottom:1px solid var(--line)}
+h1{font-size:23px;margin:0;font-weight:800;letter-spacing:-.015em}
+h1 .alt{font-weight:500;color:var(--muted)}
+.sub{color:var(--muted);font-size:14.5px;margin-top:5px}
+.sub b{color:var(--ink);font-weight:600}
+.keys{font-size:12px;color:var(--muted)}
+.keys kbd{font-family:"JetBrains Mono",monospace;font-size:11px;border:1px solid var(--line);border-bottom-width:2px;border-radius:4px;padding:1px 5px;background:var(--soft);color:var(--ink)}
+
+.grid{display:grid;grid-template-columns:1.12fr 1fr 1.02fr;gap:16px;padding:16px 28px 8px}
+@media(max-width:1180px){.grid{grid-template-columns:1fr 1fr}.panel{grid-column:1/-1}}
+@media(max-width:740px){.grid{grid-template-columns:1fr;padding:12px}.panel{grid-column:auto}header{padding:14px}}
+.card{border:1px solid var(--line);border-radius:14px;padding:14px 16px 16px;background:#fff;min-width:0}
+.card h2{font-size:12px;text-transform:uppercase;letter-spacing:.09em;color:var(--muted);margin:0 0 6px;font-weight:700;display:flex;justify-content:space-between}
+svg{width:100%;height:auto;display:block;overflow:visible}
+
+/* ---------- Automat ---------- */
+.gwrap{position:relative}
+#orig,#mini{transition:opacity .5s}
+.node .body{fill:var(--node);transition:fill .35s}
+.node text{fill:#fff;font-weight:700;font-size:17px;text-anchor:middle;dominant-baseline:central;transition:fill .35s}
+.node .inner{fill:none;stroke:#fff;stroke-width:2}
+.node .ring{fill:none;stroke:var(--succ);stroke-width:3;stroke-dasharray:5 4;opacity:0;transition:opacity .3s}
+.node{transition:opacity .35s}
+.node.cur .body{fill:var(--curfill)}
+.node.cur{filter:drop-shadow(0 0 7px rgba(217,119,6,.55))}
+.node.succ .body{fill:var(--succ)}
+.node.succring .ring{opacity:1}
+.node.fin .body{fill:var(--r0)}
+.node.fin{filter:drop-shadow(0 0 7px rgba(29,53,87,.45))}
+.node.nonfin .body{fill:#e2e8f0}
+.node.nonfin text{fill:var(--ink)}
+.node.nonfin .inner{stroke:var(--ink)}
+.node.cls0 .body{fill:var(--c0)}.node.cls1 .body{fill:var(--c1)}.node.cls2 .body{fill:var(--c2)}.node.cls3 .body{fill:var(--c3)}
+.edge path{fill:none;stroke:#0f172a;stroke-width:1.7;transition:stroke .3s,stroke-width .3s}
+.edge text{font-size:15px;font-weight:600;fill:#0f172a;text-anchor:middle;dominant-baseline:central;paint-order:stroke;stroke:#fff;stroke-width:5px;stroke-linejoin:round;transition:fill .3s}
+.edge{transition:opacity .35s}
+.edge.dim{opacity:.22}
+.edge.hi path{stroke:var(--succ);stroke-width:3.4}
+.edge.hi text{fill:var(--succ);font-weight:800;font-size:18px}
+.edge.soft path{stroke:var(--succsoft);stroke-width:2.8}
+.edge.soft text{fill:#7c3aed}
+.start{stroke:#0f172a;stroke-width:1.8;fill:none}
+
+table.delta{border-collapse:separate;border-spacing:0;font-size:14px;margin:8px auto 0;font-variant-numeric:tabular-nums}
+table.delta th,table.delta td{border-bottom:1px solid var(--line);padding:4px 14px;text-align:center;transition:background .3s,color .3s}
+table.delta thead th{font-size:12px;color:var(--muted);font-weight:700;border-bottom:2px solid var(--ink)}
+table.delta tbody th{font-weight:700;text-align:right;white-space:nowrap}
+table.delta td.on{background:#ede9fe;color:var(--succ);font-weight:800}
+table.delta td.onsoft{background:#f5f3ff;color:#7c3aed}
+table.delta th.cur{background:#fef3c7;color:#92400e}
+.dcap{text-align:center;font-size:12px;color:var(--muted);margin-top:4px}
+
+/* ---------- Tabelle ---------- */
+.cell .bg{fill:#fff;stroke:#cbd5e1;stroke-width:1.5;transition:fill .35s,stroke .35s}
+.cell .hl{fill:none;stroke:transparent;stroke-width:4}
+.cell .ord{font-size:10.5px;fill:#94a3b8;font-weight:700;transition:fill .3s}
+.cell .mk{font-size:27px;font-weight:800;fill:#fff;text-anchor:middle;dominant-baseline:central}
+.cell .rd{font-size:11px;font-weight:800;fill:rgba(255,255,255,.92);text-anchor:end}
+.cell.m.r0 .bg{fill:var(--r0);stroke:var(--r0)}
+.cell.m.r1 .bg{fill:var(--r1);stroke:var(--r1)}
+.cell.m.r2 .bg{fill:var(--r2);stroke:var(--r2)}
+.cell.m.r3 .bg{fill:var(--r3);stroke:var(--r3)}
+.cell.m .ord{fill:rgba(255,255,255,.65)}
+.cell.checked .bg{fill:#eef2f6}
+.cell.eq .bg{fill:var(--eqbg);stroke:var(--eq);stroke-width:2.5}
+.cell.eq .mk{fill:var(--eq)}
+.cell.cur .hl{stroke:var(--cur);animation:pulse 1.1s ease-in-out infinite}
+.cell.succ .hl{stroke:var(--succ);stroke-dasharray:7 4}
+.cell.succsoft .hl{stroke:var(--succsoft);stroke-dasharray:7 4}
+.cell.pop{animation:pop .55s cubic-bezier(.2,1.7,.4,1) both;transform-box:fill-box;transform-origin:center}
+.cell.sweep .bg{animation:sweep 1.1s ease both;animation-delay:var(--d)}
+.cell.sweep .ord{animation:sweepo 1.1s ease both;animation-delay:var(--d)}
+@keyframes pop{0%{transform:scale(.3);opacity:0}100%{transform:scale(1);opacity:1}}
+@keyframes sweep{0%{fill:#fff}35%{fill:#fde68a}100%{fill:#fff}}
+@keyframes sweepo{0%{fill:#94a3b8}35%{fill:#92400e}100%{fill:#94a3b8}}
+@keyframes pulse{0%,100%{stroke-opacity:1}50%{stroke-opacity:.3}}
+.tl{font-size:15px;font-weight:700;fill:var(--ink)}
+.tl.cur{fill:#b45309}
+.tarrow{fill:none;stroke:var(--succ);stroke-width:2.6;stroke-dasharray:500;stroke-dashoffset:500;animation:draw .6s ease forwards}
+.tarrow.soft{stroke:var(--succsoft)}
+@keyframes draw{to{stroke-dashoffset:0}}
+.tablewrap.dim svg{opacity:.35;transition:opacity .4s}
+.tablewrap svg{transition:opacity .4s}
+
+.legend{display:flex;flex-wrap:wrap;gap:6px 14px;margin-top:10px;font-size:12.5px;color:#334155}
+.legend span{display:inline-flex;align-items:center;gap:6px}
+.sw{width:16px;height:16px;border-radius:4px;display:inline-block;flex:none}
+.sw.o{background:#fff;border:3px solid var(--cur)}
+.sw.s{background:#fff;border:3px dashed var(--succ)}
+.sw.g{background:#eef2f6;border:1.5px solid #cbd5e1}
+.sw.e{background:var(--eqbg);border:2px solid var(--eq)}
+
+/* ---------- Panel ---------- */
+.panel{display:flex;flex-direction:column;gap:12px}
+.phead{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.badge{color:#fff;font-size:11.5px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;padding:4px 9px;border-radius:999px}
+.ptitle{font-size:19px;font-weight:800;letter-spacing:-.01em;margin:2px 0 0;line-height:1.25}
+.pbody{font-size:15px;line-height:1.5;animation:fade .35s ease}
+.pbody p{margin:0 0 8px}
+.pbody .small{font-size:13px;color:var(--muted)}
+@keyframes fade{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
+.def{font-family:"JetBrains Mono",monospace;font-size:13px;background:var(--soft);border-left:3px solid var(--ink);padding:8px 10px;border-radius:4px;margin:6px 0 10px}
+.hint{color:#334155}
+.chk{display:grid;grid-template-columns:28px 1fr;gap:2px 10px;padding:8px 10px;border-radius:9px;border:1px solid var(--line);margin-bottom:6px;background:#fff;opacity:.6}
+.chk.latest{opacity:1;border-color:var(--succsoft);background:#faf8ff}
+.chk .sym{grid-row:1/3;align-self:center;width:28px;height:28px;border-radius:7px;background:var(--succ);color:#fff;font-weight:800;display:flex;align-items:center;justify-content:center;font-size:16px}
+.chk .f{font-family:"JetBrains Mono",monospace;font-size:13px}
+.chk .res{font-size:13.5px;font-weight:600}
+.chk.st-marked .res{color:var(--succ)}
+.chk.st-same .res,.chk.st-self .res,.chk.st-unmarked .res{color:var(--muted)}
+.verdict{padding:9px 12px;border-radius:9px;font-weight:700;font-size:15px}
+.verdict.yes{background:#fff7ed;border:1.5px solid var(--cur);color:#7c2d12}
+.verdict.no{background:#f1f5f9;border:1.5px solid #cbd5e1;color:#334155}
+.verdict .wit{font-weight:500;font-size:13px;margin-top:4px;font-family:"JetBrains Mono",monospace;color:#7c2d12}
+.tag{display:inline-block;color:#fff;font-size:11px;font-weight:800;padding:2px 7px;border-radius:999px;margin-left:6px;vertical-align:2px}
+.note{font-size:13.5px;background:#eff6ff;border-left:3px solid #2563eb;padding:7px 10px;border-radius:4px;margin-top:8px;color:#1e3a8a}
+.wl{display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:4px 10px;font-family:"JetBrains Mono",monospace;font-size:12.5px;margin-top:6px}
+.wl span b{font-weight:700}
+.counter{display:flex;align-items:center;gap:12px;border:1px solid var(--line);border-radius:12px;padding:8px 12px;transition:all .3s}
+.counter .num{font-size:32px;font-weight:800;min-width:46px;height:46px;border-radius:10px;display:flex;align-items:center;justify-content:center;color:#fff;font-variant-numeric:tabular-nums}
+.counter .lbl{font-size:13.5px;color:#334155;line-height:1.3}
+.counter.bump .num{animation:bump .45s ease}
+@keyframes bump{0%{transform:scale(1)}40%{transform:scale(1.25)}100%{transform:scale(1)}}
+.counter.stop{border-color:var(--eq);background:var(--eqbg)}
+.pseudo{font-family:"JetBrains Mono",monospace;font-size:12.5px;line-height:1.55;background:var(--soft);border-radius:10px;padding:8px 6px;border:1px solid var(--line)}
+.pseudo div{padding:1px 8px;border-radius:5px;white-space:pre;overflow:hidden;text-overflow:ellipsis;transition:background .3s,color .3s}
+.pseudo div.on{background:#fef3c7;color:#78350f;font-weight:700}
+.pseudo div.hit{background:#fed7aa;color:#7c2d12;font-weight:700}
+.pseudo .ln{color:#94a3b8;margin-right:8px}
+.stop{border:2px dashed #cbd5e1;border-radius:10px;padding:8px 12px;font-size:13.5px;color:#334155;transition:all .4s}
+.stop b{display:block;font-size:12px;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);margin-bottom:2px}
+.stop.on{border-style:solid;border-color:var(--eq);background:var(--eqbg);color:#14532d}
+.stop.on b{color:var(--eq)}
+
+/* ---------- Steuerung ---------- */
+.controls{position:sticky;bottom:0;background:rgba(255,255,255,.96);backdrop-filter:blur(6px);border-top:1px solid var(--line);padding:10px 28px 12px;z-index:5}
+.row{display:flex;flex-wrap:wrap;align-items:center;gap:8px 10px}
+button,select{font:inherit;font-size:14px;font-weight:600;border:1px solid #cbd5e1;background:#fff;color:var(--ink);border-radius:9px;padding:7px 12px;cursor:pointer}
+button:hover{background:var(--soft)}
+button.primary{background:var(--ink);color:#fff;border-color:var(--ink);min-width:132px}
+button.primary:hover{background:#1e293b}
+button:disabled{opacity:.4;cursor:default}
+.seg-toggle{display:inline-flex;border:1px solid #cbd5e1;border-radius:9px;overflow:hidden}
+.seg-toggle button{border:0;border-radius:0;padding:7px 10px}
+.seg-toggle button.on{background:var(--ink);color:#fff}
+.lblsm{font-size:12.5px;color:var(--muted);font-weight:600}
+#counterTxt{font-variant-numeric:tabular-nums;font-size:13.5px;color:var(--muted);font-weight:600;margin-left:auto}
+.timeline{display:flex;gap:4px;margin-top:9px}
+.seg{position:relative;height:30px;background:#f1f5f9;border-radius:7px;cursor:pointer;overflow:hidden;min-width:58px}
+.seg .fill{position:absolute;left:0;top:0;bottom:0;transition:width .35s}
+.seg .t{position:relative;z-index:1;display:flex;align-items:center;justify-content:center;height:100%;font-size:11.5px;font-weight:700;color:#334155;white-space:nowrap;padding:0 4px;overflow:hidden}
+.seg.done .t{color:#fff}
+.seg.active .t{color:var(--ink)}
+.seg.active .t span{background:rgba(255,255,255,.92);padding:1px 7px;border-radius:5px}
+.seg .t .s{display:none}
+@media(max-width:740px){.keys{display:none}.controls{padding:8px 12px}.pseudo div{white-space:pre-wrap}.seg .t .l{display:none}.seg .t .s{display:inline}.seg{min-width:30px}.lblsm{display:none}}
+.seg.active{outline:2px solid var(--ink);outline-offset:1px}
+
+:root{--neq:#b91c1c;--neqbg:#fee2e2}
+.band{fill:#f8fafc;stroke:#e2e8f0;stroke-width:1.2}
+.bandlbl{font-size:12px;font-weight:800;letter-spacing:.09em;text-transform:uppercase;fill:#64748b}
+.node.path .body{fill:var(--succ)}
+.node.acc .body{fill:var(--eq)}
+.node.rej .body{fill:var(--neq)}
+.node.acc,.node.rej{filter:drop-shadow(0 0 7px rgba(15,23,42,.35))}
+.node.start .ring{opacity:1;stroke:#ca8a04;stroke-dasharray:none;stroke-width:3}
+.cell .star{font-size:14px;fill:#ca8a04;text-anchor:end;font-weight:800}
+.cell.m .star{fill:#fde047}
+.sep{stroke:#0f172a;stroke-width:1.5;stroke-dasharray:4 4;opacity:.55}
+.blk{font-size:10.5px;font-weight:700;fill:#94a3b8;letter-spacing:.06em}
+table.delta tr.sepB th,table.delta tr.sepB td{border-top:2px solid var(--ink)}
+.spbox{display:flex;align-items:center;gap:12px;border:2px solid #cbd5e1;border-radius:12px;padding:9px 12px;font-size:14px;transition:all .35s}
+.spbox .ic{font-size:22px;color:#ca8a04;width:30px;text-align:center}
+.spbox b{font-size:15px}
+.spbox.neq{border-color:var(--neq);background:var(--neqbg);color:#7f1d1d}
+.spbox.eq{border-color:var(--eq);background:var(--eqbg);color:#14532d}
+.stop div{padding:3px 6px;border-radius:6px;margin-top:2px;transition:all .35s}
+.stop div.on1{background:var(--neqbg);color:#7f1d1d;font-weight:700}
+.stop div.on2{background:var(--eqbg);color:#14532d;font-weight:700}
+.stop.on{border-style:solid}
+.stop.on.n{border-color:var(--neq);background:#fff}
+.stop.on.e{border-color:var(--eq);background:#fff}
+.pseudo div.stp{background:var(--neqbg);color:#7f1d1d;font-weight:700}
+.trace{font-family:"JetBrains Mono",monospace;font-size:13px;padding:8px 10px;border-radius:8px;margin:6px 0;border:1.5px solid}
+.trace.acc{border-color:var(--eq);background:var(--eqbg);color:#14532d}
+.trace.rej{border-color:var(--neq);background:var(--neqbg);color:#7f1d1d}
+.exsel{display:inline-flex;border:1px solid #cbd5e1;border-radius:9px;overflow:hidden}
+.exsel button{border:0;border-radius:0;padding:7px 12px}
+.exsel button.on{background:var(--ink);color:#fff}
+.verdict.stopv{background:var(--neqbg);border-color:var(--neq);color:#7f1d1d}
+</style>
+</head>
+<body>
+<header>
+  <div>
+    <h1>Äquivalenz zweier DEAs <span class="alt">· mit dem Table-Filling-Algorithmus</span></h1>
+    <div class="sub" id="sub"></div>
+  </div>
+  <div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px">
+    <div class="exsel" id="exsel"><button data-e="0" class="on">Beispiel 1</button><button data-e="1">Beispiel 2</button></div>
+    <div class="keys"><kbd>←</kbd> <kbd>→</kbd> Schritt &nbsp; <kbd>Leertaste</kbd> Abspielen/Pause</div>
+  </div>
+</header>
+
+<main class="grid">
+  <section class="card">
+    <h2><span>Automaten A und B</span><span id="gNote"></span></h2>
+    <svg id="graph" viewBox="0 0 540 450" aria-label="Zustandsdiagramme"></svg>
+    <table class="delta" id="delta"></table>
+    <div class="dcap">Übergangsfunktion auf Q<sub>A</sub> ∪ Q<sub>B</sub> &nbsp;(→ Start, * Endzustand)</div>
+  </section>
+
+  <section class="card tablewrap" id="tableCard">
+    <h2><span>Markierungstabelle</span><span id="tNote"></span></h2>
+    <svg id="table" viewBox="0 0 370 350" aria-label="Markierungstabelle"></svg>
+    <div class="legend">
+      <span><i class="sw" style="background:var(--r0)"></i>Runde 0 (Init)</span>
+      <span><i class="sw" style="background:var(--r1)"></i>Durchlauf 1</span>
+      <span><i class="sw" style="background:var(--r2)"></i>Durchlauf 2</span>
+      <span><i class="sw" style="background:var(--r3)"></i>Durchlauf 3</span>
+      <span><i class="sw o"></i>aktuelles Paar</span>
+      <span><i class="sw s"></i>Nachfolgerpaar</span>
+      <span><i class="sw g"></i>geprüft, (noch) leer</span>
+      <span><i class="sw e"></i>äquivalent</span>
+      <span><b style="color:#ca8a04">★</b>Startpaar</span>
+      <span style="color:var(--muted)">gestrichelt: Grenze A-Paare | Kreuzpaare A×B | B-Paare</span>
+    </div>
+  </section>
+
+  <section class="card panel" id="panel">
+    <div>
+      <div class="phead"><span class="badge" id="badge"></span><span id="stepNo" style="font-size:12.5px;color:var(--muted);font-weight:600"></span></div>
+      <div class="ptitle" id="ptitle"></div>
+    </div>
+    <div class="spbox" id="spbox"></div>
+    <div class="pbody" id="pbody"></div>
+    <div class="counter" id="counter"></div>
+    <div class="pseudo" id="pseudo"></div>
+    <div class="stop" id="stop"><b>Abbruchkriterien</b><div id="stop1">① Startpaar markiert ⇒ sofort STOPP: nicht äquivalent</div><div id="stop2">② Durchlauf ohne neue Markierung ⇒ STOPP: Startpaar unmarkiert ⇒ äquivalent</div></div>
+  </section>
+</main>
+
+<footer class="controls">
+  <div class="row">
+    <button id="bFirst" title="Zum Anfang (Pos1)">⏮</button>
+    <button id="bPrev" title="Zurück (←)">◀ Zurück</button>
+    <button id="bPlay" class="primary" title="Abspielen/Pause (Leertaste)">▶ Abspielen</button>
+    <button id="bNext" title="Weiter (→)">Weiter ▶</button>
+    <span class="lblsm" style="margin-left:6px">Tempo</span>
+    <select id="speed"><option value="2800">langsam</option><option value="1800" selected>normal</option><option value="1000">schnell</option></select>
+    <span class="lblsm" style="margin-left:6px">Schritte</span>
+    <div class="seg-toggle" id="mode"><button data-m="detail" class="on">pro Symbol</button><button data-m="compact">pro Paar</button></div>
+    <span id="counterTxt"></span>
+  </div>
+  <div class="timeline" id="timeline"></div>
+</footer>
+
+<script>
+/* ================= Beispiele ================= */
+const SUB='₀₁₂₃₄₅₆₇₈₉';
+const SIG=['a','b'];
+const EXAMPLES=[
+ { // äquivalent
+  nA:3,
+  D:[{a:1,b:0},{a:1,b:2},{a:1,b:0},{a:4,b:3},{a:6,b:5},{a:6,b:3},{a:4,b:5}],
+  F:[2,5],
+  pos:[[80,110],[250,110],[420,110],[85,335],[250,262],[250,405],[415,335]],
+  curv:{'2>0':-95},
+  side:{'4>5':1},
+  loopAng:{3:225},
+  langB:'Ebenfalls alle Wörter, die auf ab enden – nur mit einem überflüssigen Zustand.',
+  classDesc:['Wortende enthält keinen Anfang von „ab“','zuletzt „a“ gelesen','zuletzt „ab“ gelesen (akzeptierend)']
+ },
+ { // nicht äquivalent
+  nA:3,
+  D:[{a:1,b:0},{a:1,b:2},{a:1,b:0},{a:4,b:3},{a:4,b:5},{a:5,b:5}],
+  F:[2,5],
+  pos:[[80,110],[250,110],[420,110],[80,335],[250,335],[420,335]],
+  curv:{'2>0':-95},
+  side:{},
+  loopAng:{},
+  langB:'B akzeptiert alle Wörter, die ab <i>enthalten</i> – nicht nur die, die auf ab enden.',
+  classDesc:[]
+ }
+];
+
+/* ================= Zustand ================= */
+let EXI=0,EX,N,D,FIN,lab,PAIRS,ORD,START,SK,CLASSES,CLS_OF;
+const key=(p,q)=>p>q?`${p},${q}`:`${q},${p}`;
+const split=k=>k.split(',').map(Number);
+const pl=k=>{const[i,j]=split(k);return `{${lab(j)}, ${lab(i)}}`};
+const RC=['var(--r0)','var(--r1)','var(--r2)','var(--r3)'];
+const run=(p,w)=>{for(const c of w)p=D[p][c];return p};
+
+function loadExample(e){
+  EXI=e;EX=EXAMPLES[e];N=EX.D.length;D=EX.D;FIN=new Set(EX.F);
+  lab=i=>i<EX.nA?'p'+SUB[i]:'r'+SUB[i-EX.nA];
+  PAIRS=[];for(let i=1;i<N;i++)for(let j=0;j<i;j++)PAIRS.push({i,j,k:`${i},${j}`,ord:PAIRS.length+1});
+  ORD=Object.fromEntries(PAIRS.map(p=>[p.k,p.ord]));
+  START=[0,EX.nA];SK=key(0,EX.nA);
+  const fm=generate(true).at(-1).marks;
+  const par=[...Array(N).keys()];const f=x=>par[x]===x?x:(par[x]=f(par[x]));
+  for(const p of PAIRS)if(!fm[p.k])par[f(p.i)]=f(p.j);
+  const m={};for(let q=0;q<N;q++)(m[f(q)]=m[f(q)]||[]).push(q);
+  CLASSES=Object.values(m).sort((a,b)=>a[0]-b[0]);
+  CLS_OF={};CLASSES.forEach((c,ci)=>c.forEach(q=>CLS_OF[q]=ci));
+  $('sub').innerHTML=`Σ = {a, b} &nbsp;·&nbsp; <b>A</b> akzeptiert alle Wörter, die auf <b>ab</b> enden &nbsp;·&nbsp; Akzeptiert <b>B</b> dieselbe Sprache?`;
+}
+
+/* ================= Schritt-Generator ================= */
+function generate(compact){
+  const S=[];const marks={};
+  const snap=()=>JSON.parse(JSON.stringify(marks));
+  S.push({phase:'intro',seg:'prep',marks:{},checked:[]});
+  S.push({phase:'table',seg:'prep',marks:{},checked:[]});
+  const jm=[];
+  for(const p of PAIRS){if(FIN.has(p.i)!==FIN.has(p.j)){marks[p.k]={round:0,word:''};jm.push(p.k);}}
+  S.push({phase:'init',seg:'init',marks:snap(),justMarked:jm,checked:[],count:jm.length});
+  if(marks[SK]){S.push({phase:'stopNeq',seg:'res',marks:snap(),checked:[],pass:0});S.push({phase:'counter',seg:'res',marks:snap(),checked:[],pass:0});return S;}
+  let pass=0,newCount;
+  do{
+    pass++;newCount=0;const checked=[];
+    S.push({phase:'passStart',seg:'p'+pass,pass,marks:snap(),checked:[],count:0});
+    for(const p of PAIRS){
+      if(marks[p.k])continue;
+      const checks=[];let hit=null;
+      for(let s=0;s<SIG.length;s++){
+        const x=SIG[s];const ti=D[p.i][x],tj=D[p.j][x];
+        let status,k2=null;
+        if(ti===tj)status='same';
+        else{k2=key(ti,tj);status=k2===p.k?'self':(marks[k2]?'marked':'unmarked');}
+        const c={x,ti,tj,k2,status};
+        if(status==='marked'){const v=marks[k2];c.viaRound=v.round;c.viaLater=ORD[k2]>p.ord;marks[p.k]={round:pass,word:x+v.word};newCount++;hit=c;}
+        checks.push(c);
+        const last=hit||s===SIG.length-1;
+        if(!compact)S.push({phase:'pair',seg:'p'+pass,pass,cur:p.k,checks:checks.slice(),verdict:last?(hit?'yes':'no'):null,marks:snap(),justMarked:hit?[p.k]:[],checked:checked.slice(),count:newCount,bump:!!hit,startHit:!!hit&&p.k===SK});
+        if(hit)break;
+      }
+      if(compact)S.push({phase:'pair',seg:'p'+pass,pass,cur:p.k,checks,verdict:hit?'yes':'no',marks:snap(),justMarked:hit?[p.k]:[],checked:checked.slice(),count:newCount,bump:!!hit,startHit:!!hit&&p.k===SK});
+      checked.push(p.k);
+      if(hit&&p.k===SK){
+        S.push({phase:'stopNeq',seg:'res',marks:snap(),checked:[],pass,count:newCount});
+        S.push({phase:'counter',seg:'res',marks:snap(),checked:[],pass});
+        return S;
+      }
+    }
+    S.push({phase:'passEnd',seg:'p'+pass,pass,marks:snap(),checked:checked.slice(),count:newCount});
+  }while(newCount>0);
+  S.push({phase:'resultEq',seg:'res',marks:snap(),checked:[],pass});
+  S.push({phase:'mapping',seg:'res',marks:snap(),checked:[],pass});
+  return S;
+}
+
+/* ================= SVG-Helfer ================= */
+const NS='http://www.w3.org/2000/svg';
+const $=id=>document.getElementById(id);
+const el=(t,a={},p)=>{const e=document.createElementNS(NS,t);for(const k in a)e.setAttribute(k,a[k]);if(p)p.appendChild(e);return e;};
+function defs(svg,list){
+  const d=el('defs',{},svg);
+  for(const [id,col] of list){
+    const m=el('marker',{id,viewBox:'0 0 10 10',refX:'8.5',refY:'5',markerWidth:'11',markerHeight:'11',markerUnits:'userSpaceOnUse',orient:'auto-start-reverse'},d);
+    el('path',{d:'M0,0 L10,5 L0,10 L2.5,5 z',fill:col},m);
+  }
+}
+const unit=(ax,ay,bx,by)=>{const l=Math.hypot(bx-ax,by-ay)||1;return[(bx-ax)/l,(by-ay)/l]};
+const rot=(x,y,cx,cy,deg)=>{const a=deg*Math.PI/180,dx=x-cx,dy=y-cy;return[cx+dx*Math.cos(a)-dy*Math.sin(a),cy+dx*Math.sin(a)+dy*Math.cos(a)]};
+
+function drawAutomaton(gE,gN,nodes,edges,centroid){
+  const P=Object.fromEntries(nodes.map(n=>[n.id,n]));
+  const grouped={};
+  for(const e of edges){const k=e.from+'>'+e.to;(grouped[k]=grouped[k]||{from:e.from,to:e.to,syms:[]}).syms.push(e.x);}
+  for(const g of Object.values(grouped)){
+    const A=P[g.from],B=P[g.to],k=g.from+'>'+g.to;
+    const ge=el('g',{class:'edge',id:`oe-${g.from}-${g.to}`},gE);
+    g.syms.forEach(x=>{ge.dataset['s'+x]='1'});
+    let d,lx,ly;
+    if(g.from===g.to){
+      const r=A.r,x=A.x,y=A.y,ang=EX.loopAng[g.from]||0;
+      d=`M ${x-11} ${y-r+1} C ${x-42} ${y-r-50}, ${x+42} ${y-r-50}, ${x+11} ${y-r+1}`;
+      [lx,ly]=rot(x,y-r-46,x,y,ang);
+      const p=el('path',{d,'marker-end':'url(#mk-ink)',transform:`rotate(${ang} ${x} ${y})`},ge);
+      const t=el('text',{x:lx.toFixed(1),y:ly.toFixed(1)},ge);t.textContent=g.syms.join(', ');
+      continue;
+    }
+    const paired=!!grouped[g.to+'>'+g.from];
+    const curv=EX.curv[k]!==undefined?EX.curv[k]:(paired?24:0);
+    const dx=B.x-A.x,dy=B.y-A.y,L=Math.hypot(dx,dy),nx=-dy/L,ny=dx/L;
+    const cx=(A.x+B.x)/2+nx*curv,cy=(A.y+B.y)/2+ny*curv;
+    const[ux,uy]=unit(A.x,A.y,cx,cy),[vx,vy]=unit(B.x,B.y,cx,cy);
+    const sx=A.x+ux*A.r,sy=A.y+uy*A.r,ex=B.x+vx*(B.r+2),ey=B.y+vy*(B.r+2);
+    d=`M ${sx.toFixed(1)} ${sy.toFixed(1)} Q ${cx.toFixed(1)} ${cy.toFixed(1)} ${ex.toFixed(1)} ${ey.toFixed(1)}`;
+    const mx=.25*sx+.5*cx+.25*ex,my=.25*sy+.5*cy+.25*ey;
+    let s=EX.side[k]||Math.sign(curv);
+    if(!s){const d1=Math.hypot(mx+nx*14-centroid[0],my+ny*14-centroid[1]),d2=Math.hypot(mx-nx*14-centroid[0],my-ny*14-centroid[1]);s=d1>d2?1:-1;}
+    lx=mx+nx*s*13;ly=my+ny*s*13;
+    el('path',{d,'marker-end':'url(#mk-ink)'},ge);
+    const t=el('text',{x:lx.toFixed(1),y:ly.toFixed(1)},ge);t.textContent=g.syms.join(', ');
+  }
+  for(const n of nodes){
+    if(n.start)el('path',{class:'start',d:`M ${n.x-n.r-46} ${n.y} L ${n.x-n.r-3} ${n.y}`,'marker-end':'url(#mk-ink)'},gE);
+    const g=el('g',{class:'node',id:`on-${n.id}`,transform:`translate(${n.x},${n.y})`},gN);
+    el('circle',{class:'ring',r:n.r+6},g);
+    el('circle',{class:'body',r:n.r},g);
+    if(n.final)el('circle',{class:'inner',r:n.r-5},g);
+    const t=el('text',{},g);t.textContent=n.label;
+  }
+}
+
+const graph=$('graph'),tsvg=$('table');
+let CELL={},rowL=[],colL=[],gArr,CS,L0=54,T0=20;
+const origEdge=(p,x)=>graph.querySelector(`.edge[id^="oe-${p}-"][data-s${x}]`);
+const cellXY=k=>{const[i,j]=split(k);return[L0+j*CS,T0+(i-1)*CS]};
+
+function buildAll(){
+  /* Graph */
+  graph.innerHTML='';
+  defs(graph,[['mk-ink','#0f172a'],['mk-v','#6d28d9'],['mk-vs','#c4b5fd']]);
+  el('rect',{class:'band',x:6,y:14,width:528,height:180,rx:14},graph);
+  el('rect',{class:'band',x:6,y:212,width:528,height:232,rx:14},graph);
+  el('text',{class:'bandlbl',x:522,y:36,'text-anchor':'end'},graph).textContent='Automat A';
+  el('text',{class:'bandlbl',x:522,y:234,'text-anchor':'end'},graph).textContent='Automat B';
+  const gE=el('g',{},graph),gN=el('g',{},graph);
+  const nodes=EX.D.map((_,i)=>({id:i,x:EX.pos[i][0],y:EX.pos[i][1],r:24,label:lab(i),final:FIN.has(i),start:i===START[0]||i===START[1]}));
+  const edgesOf=r=>[].concat(...r.map(p=>SIG.map(x=>({from:p,to:D[p][x],x}))));
+  const iA=[...Array(EX.nA).keys()],iB=[...Array(N-EX.nA).keys()].map(i=>i+EX.nA);
+  drawAutomaton(gE,gN,nodes,edgesOf(iA),[250,150]);
+  drawAutomaton(gE,gN,nodes,edgesOf(iB),[250,335]);
+  // only draw nodes once: drawAutomaton draws all nodes each call -> remove duplicates
+  const seen=new Set();[...gN.querySelectorAll('.node')].forEach(n=>{if(seen.has(n.id))n.remove();else seen.add(n.id);});
+  const seenS=gE.querySelectorAll('.start');if(seenS.length>2)[...seenS].slice(2).forEach(s=>s.remove());
+
+  /* δ */
+  $('delta').innerHTML=`<thead><tr><th>δ</th><th>a</th><th>b</th></tr></thead><tbody>`+
+    D.map((t,i)=>`<tr class="${i===EX.nA?'sepB':''}"><th id="dh-${i}">${START.includes(i)?'→ ':''}${FIN.has(i)?'* ':''}${lab(i)}</th><td id="d-${i}-a">${lab(t.a)}</td><td id="d-${i}-b">${lab(t.b)}</td></tr>`).join('')+`</tbody>`;
+
+  /* Tabelle */
+  tsvg.innerHTML='';
+  defs(tsvg,[['tk-v','#6d28d9'],['tk-vs','#c4b5fd']]);
+  CS=Math.min(58,300/(N-1));
+  tsvg.setAttribute('viewBox',`0 0 ${L0+(N-1)*CS+14} ${T0+(N-1)*CS+36}`);
+  const gCells=el('g',{},tsvg);gArr=el('g',{},tsvg);
+  rowL=[];colL=[];CELL={};
+  for(let i=1;i<N;i++){const t=el('text',{class:'tl',x:L0-12,y:T0+(i-1)*CS+CS/2,'text-anchor':'end','dominant-baseline':'central'},tsvg);t.textContent=lab(i);rowL[i]=t;}
+  for(let j=0;j<N-1;j++){const t=el('text',{class:'tl',x:L0+j*CS+CS/2,y:T0+(N-1)*CS+20,'text-anchor':'middle'},tsvg);t.textContent=lab(j);colL[j]=t;}
+  const fs=Math.round(CS*.46);
+  for(const p of PAIRS){
+    const[x,y]=cellXY(p.k);
+    const g=el('g',{class:'cell',id:'c-'+p.k},gCells);
+    el('rect',{class:'bg',x:x+2,y:y+2,width:CS-4,height:CS-4,rx:7},g);
+    el('rect',{class:'hl',x:x+1,y:y+1,width:CS-2,height:CS-2,rx:8},g);
+    el('text',{class:'ord',x:x+7,y:y+15},g).textContent=p.ord;
+    if(p.k===SK)el('text',{class:'star',x:x+CS-6,y:y+17},g).textContent='★';
+    const mk=el('text',{class:'mk',x:x+CS/2,y:y+CS/2+1,style:`font-size:${fs}px`},g);
+    const rd=el('text',{class:'rd',x:x+CS-7,y:y+CS-7},g);
+    const ti=el('title',{},g);
+    CELL[p.k]={g,mk,rd,ti};
+  }
+  // Blockgrenzen A | B
+  const b=EX.nA;
+  const yB=T0+(b-1)*CS, xB=L0+b*CS, yEnd=T0+(N-1)*CS;
+  el('line',{class:'sep',x1:L0-4,y1:yB,x2:xB,y2:yB},tsvg);
+  el('line',{class:'sep',x1:xB,y1:yB,x2:xB,y2:yEnd+4},tsvg);
+}
+
+/* ================= Rendering ================= */
+let STEPS=[],idx=0,mode='detail',timer=null;
+const SEGSHORT=s=>s==='prep'?'Start':s==='init'?'Init':s==='res'?'Erg.':'D'+s.slice(1);
+const SEGNAME=s=>s==='prep'?'Start':s==='init'?'Init':s==='res'?'Ergebnis':'Durchlauf '+s.slice(1);
+const SEGCOL=s=>s==='prep'?'#94a3b8':s==='init'?RC[0]:s==='res'?(STEPS.at(-1).phase==='counter'?'var(--neq)':'var(--eq)'):RC[+s.slice(1)]||RC[3];
+const remainingList=m=>PAIRS.filter(p=>!m[p.k]).map(p=>pl(p.k));
+const finList=()=>[...FIN].map(lab).join(', ');
+const startTxt=()=>pl(SK);
+
+function witnessLine(k,word){
+  const[i,j]=split(k);const a=run(j,word),b=run(i,word);const w=word||'ε';
+  return `Zeugenwort <b>${w}</b>: δ*(${lab(j)}, ${w}) = ${lab(a)} ${FIN.has(a)?'∈':'∉'} F, δ*(${lab(i)}, ${w}) = ${lab(b)} ${FIN.has(b)?'∈':'∉'} F`;
+}
+function traceOf(s,w){let p=s,t=lab(p);for(const c of w){p=D[p][c];t+=` —${c}→ ${lab(p)}`;}return{t,end:p};}
+
+function checkHTML(st,c,latest){
+  const[i,j]=split(st.cur);let res;
+  if(c.status==='same')res='gleicher Zustand ⇒ kein Unterschied';
+  else if(c.status==='self')res=`⇒ führt auf ${pl(c.k2)} selbst ⇒ kein Hinweis`;
+  else if(c.status==='unmarked')res=`⇒ ${pl(c.k2)} ist unmarkiert ⇒ (noch) kein Hinweis`;
+  else res=`⇒ ${pl(c.k2)} ist markiert ✓`;
+  return `<div class="chk st-${c.status} ${latest?'latest':''}"><span class="sym">${c.x}</span><span class="f">δ(${lab(j)}, ${c.x}) = ${lab(c.tj)}, &nbsp;δ(${lab(i)}, ${c.x}) = ${lab(c.ti)}</span><span class="res">${res}</span></div>`;
+}
+
+function panel(st){
+  let badge='',col='#64748b',title='',body='';const P=st.pass;
+  const nPairs=PAIRS.length,nCross=EX.nA*(N-EX.nA);
+  switch(st.phase){
+    case 'intro':
+      badge='Start';title='Sind A und B äquivalent?';
+      body=`<p>A und B sind DEAs über Σ = {a, b}. A akzeptiert genau die Wörter, die auf <b>ab</b> enden. Akzeptiert B dieselbe Sprache?</p>
+      <div class="def">L(A) = L(B) &nbsp;⇔&nbsp; ${lab(START[0])} ≡ ${lab(START[1])}</div>
+      <p class="hint"><b>Idee:</b> Wir fassen beide Automaten als <b>einen</b> Automaten mit Zustandsmenge Q<sub>A</sub> ∪ Q<sub>B</sub> auf (disjunkte Vereinigung) und wenden den Table-Filling-Algorithmus an.</p>
+      <p>Am Ende interessiert nur ein einziges Paar: das <b>Startpaar</b> ${startTxt()} (★).</p>`;break;
+    case 'table':
+      badge='Schritt 0';title='Tabelle für alle Paare aus Q_A ∪ Q_B';
+      body=`<p>${N} Zustände ⇒ ${N}·${N-1}/2 = <b>${nPairs} Paare</b>. Davon sind ${nCross} <b>Kreuzpaare</b> (ein Zustand aus A, einer aus B) – der Block unten links.</p>
+      <p>Die Paare <i>innerhalb</i> von A bzw. B brauchen wir trotzdem: Unterscheidbarkeit kann sich über sie fortpflanzen.</p>
+      <p><b>Reihenfolge:</b> wie gehabt zeilenweise, von oben nach unten und von links nach rechts (Nummern).</p>`;break;
+    case 'init':
+      badge='Initialisierung';col=RC[0];title='Runde 0: Endzustand vs. Nicht-Endzustand';
+      body=`<p>Ist genau einer der beiden Zustände ein Endzustand, unterscheidet sie das leere Wort ε.</p><p>F = {${finList()}} ⇒ <b>${st.count} Paare</b> werden markiert.</p>
+      <p class="small">Wäre schon das Startpaar dabei (einer der Startzustände akzeptierend, der andere nicht), könnten wir hier bereits aufhören: ε ∈ L(A) ⇎ ε ∈ L(B).</p>`;break;
+    case 'passStart':{
+      badge='Durchlauf '+P;col=RC[P]||RC[3];const rem=remainingList(st.marks);
+      title=`Durchlauf ${P} beginnt`;
+      body=P===1?`<p>Gehe alle <b>unmarkierten</b> Paare in fester Reihenfolge durch. Für jedes Paar {p, q} und jedes x ∈ Σ: Ist das Nachfolgerpaar {δ(p, x), δ(q, x)} markiert ⇒ markiere {p, q}.</p>
+        <p><b>Neu gegenüber der Minimierung:</b> Sobald das Startpaar ★ markiert wird, sind wir fertig – dann sind A und B nicht äquivalent.</p><p class="small">Zu prüfen: ${rem.length} Paare.</p>`
+        :`<p>Im letzten Durchlauf kamen neue Markierungen hinzu – also noch einmal alle <b>noch unmarkierten</b> Paare prüfen, in derselben Reihenfolge.</p><p class="small">Zu prüfen: ${rem.join(', ')}</p>`;
+      break;}
+    case 'pair':{
+      badge='Durchlauf '+P;col=RC[P]||RC[3];
+      title=`Prüfe ${pl(st.cur)}${st.cur===SK?' ★':''}`;
+      body=`<p class="small">Paar Nr. ${ORD[st.cur]}${st.cur===SK?' · das Startpaar!':''} · Wohin führen beide Zustände mit jedem Symbol?</p>`;
+      st.checks.forEach((c,n)=>body+=checkHTML(st,c,n===st.checks.length-1));
+      if(st.verdict==='yes'){
+        const c=st.checks.at(-1),m=st.marks[st.cur];
+        body+=`<div class="verdict ${st.startHit?'stopv':'yes'}">⇒ markiere ${pl(st.cur)}<span class="tag" style="background:${col}">Durchlauf ${P}</span>${st.startHit?' — <b>Startpaar!</b>':''}<div class="wit">${witnessLine(st.cur,m.word)}</div></div>`;
+        if(c.viaRound===P&&P>0)body+=`<div class="note">${pl(c.k2)} wurde erst in diesem Durchlauf markiert – darf sofort mitbenutzt werden.</div>`;
+        else if(P>1&&c.viaRound===P-1&&c.viaLater)body+=`<div class="note">${pl(c.k2)} wurde in Durchlauf ${P-1} erst <b>nach</b> ${pl(st.cur)} markiert (Nr. ${ORD[c.k2]} &gt; Nr. ${ORD[st.cur]}) – darum fällt der Unterschied erst jetzt auf.</div>`;
+        else if(P>1&&c.viaRound===P-1)body+=`<div class="note">${pl(c.k2)} wurde erst in Durchlauf ${P-1} markiert – darum fällt der Unterschied erst jetzt auf.</div>`;
+      }else if(st.verdict==='no')body+=`<div class="verdict no">Kein Nachfolgerpaar markiert ⇒ ${pl(st.cur)} bleibt vorerst leer</div>`;
+      break;}
+    case 'passEnd':{
+      badge='Durchlauf '+P;col=RC[P]||RC[3];const rem=remainingList(st.marks);
+      if(st.count>0){title=`Durchlauf ${P} beendet: ${st.count} neue Markierung${st.count>1?'en':''}`;
+        body=`<p>Die Tabelle hat sich verändert, das Startpaar ist aber noch unmarkiert ⇒ <b>weiterer Durchlauf</b>.</p><p class="small">Noch unmarkiert: ${rem.join(', ')}</p>`;}
+      else{title='Keine neue Markierung ⇒ Fixpunkt';col='var(--eq)';
+        body=`<p>Ein kompletter Durchlauf hat nichts Neues markiert. Die Tabelle ist stabil – das Startpaar ${startTxt()} wird <b>nie</b> mehr markiert.</p><p class="small">Unmarkiert: ${rem.join(', ')}</p>`;}
+      break;}
+    case 'stopNeq':{
+      const w=st.marks[SK].word;
+      badge='Stopp';col='var(--neq)';title='Startpaar markiert ⇒ A und B sind nicht äquivalent';
+      body=`<p>Wir brechen <b>sofort</b> ab. Der Rest der Tabelle ist für die Frage „L(A) = L(B)?“ egal${st.pass?` – auch der laufende Durchlauf ${st.pass} muss nicht zu Ende geführt werden`:''}.</p>
+      <p>Die Markierung liefert gleich ein <b>Gegenbeispiel</b>: das Zeugenwort <b style="font-family:'JetBrains Mono',monospace">${w||'ε'}</b> wird von genau einem der beiden Automaten akzeptiert.</p>
+      <p class="small">Zeugenwort zusammensetzen: Symbol der Markierung + Zeugenwort des Nachfolgerpaars (rekursiv bis Runde 0, dort ε).</p>`;break;}
+    case 'counter':{
+      const w=st.marks[SK].word;const ta=traceOf(START[0],w),tb=traceOf(START[1],w);
+      badge='Gegenbeispiel';col='var(--neq)';title=`Gegenprobe mit w = ${w||'ε'}`;
+      const tr=(name,t)=>`<div class="trace ${FIN.has(t.end)?'acc':'rej'}"><b>${name}:</b> ${t.t} ${FIN.has(t.end)?'∈ F ⇒ akzeptiert':'∉ F ⇒ abgelehnt'}</div>`;
+      body=tr('A',ta)+tr('B',tb)+`<p style="margin-top:8px">⇒ <b>L(A) ≠ L(B)</b>. ${EX.langB}</p>`;break;}
+    case 'resultEq':
+      badge='Ergebnis';col='var(--eq)';title='Startpaar unmarkiert ⇒ L(A) = L(B)';
+      body=`<p>Nach dem Fixpunkt ist ${startTxt()} unmarkiert ⇒ ${lab(START[0])} ≡ ${lab(START[1])}: Kein Wort unterscheidet die beiden Startzustände.</p>
+      <p>⇒ <b>A und B akzeptieren dieselbe Sprache.</b></p>
+      <p class="small">Anders als beim Gegenbeispiel brauchen wir hier den <i>kompletten</i> Fixpunkt: Erst wenn nichts mehr markiert werden kann, ist sicher, dass das Startpaar unmarkiert bleibt.</p>`;break;
+    case 'mapping':
+      badge='Ergebnis';col='var(--c0)';title='Zustandsentsprechung zwischen A und B';
+      body=`<p>Die Äquivalenzklassen verbinden die Zustände beider Automaten:</p>`+
+        CLASSES.map((c,ci)=>`<p><b style="color:var(--c${ci})">[${c.map(lab).join(', ')}]</b> – ${EX.classDesc[ci]||''}</p>`).join('')+
+        `<p class="small">${EX.langB}</p>`;break;
+  }
+  $('badge').textContent=badge;$('badge').style.background=col;$('ptitle').textContent=title;
+  const pb=$('pbody');pb.innerHTML=body;pb.style.animation='none';void pb.offsetWidth;pb.style.animation='';
+
+  // Startpaar-Status
+  const sp=$('spbox');const sm=st.marks[SK];
+  const done=['resultEq','mapping'].includes(st.phase)||(st.phase==='passEnd'&&st.count===0);
+  sp.className='spbox'+(sm?' neq':done?' eq':'');
+  sp.innerHTML=`<span class="ic">★</span><div>Startpaar ${startTxt()}: <b>${sm?'markiert ⇒ nicht äquivalent':done?'bleibt unmarkiert ⇒ äquivalent':'noch offen'}</b></div>`;
+
+  // Zähler
+  const ctr=$('counter');ctr.className='counter';
+  if(['passStart','pair','passEnd'].includes(st.phase)){
+    const fix=st.phase==='passEnd'&&st.count===0;ctr.style.display='';
+    ctr.innerHTML=`<div class="num" style="background:${fix?'var(--eq)':(RC[P]||RC[3])}">${st.count}</div><div class="lbl">${fix?`<b>STOPP</b> – Durchlauf ${P} ohne neue Markierung`:`neue Markierungen<br>in Durchlauf ${P}`}</div>`;
+    if(fix)ctr.classList.add('stop');
+    if(st.bump){void ctr.offsetWidth;ctr.classList.add('bump');}
+  }else if(st.phase==='init'){ctr.style.display='';ctr.innerHTML=`<div class="num" style="background:var(--r0)">${st.count}</div><div class="lbl">Markierungen in Runde 0</div>`;}
+  else ctr.style.display='none';
+
+  // Pseudocode
+  const L=['Q := Q_A ∪ Q_B; Tabelle aller Paare anlegen','markiere {p,q}, falls genau einer ∈ F','wiederhole','  für jedes unmarkierte {p,q} (Reihenfolge!)','    für jedes x ∈ Σ:','      falls {δ(p,x),δ(q,x)} markiert: markiere {p,q}','      falls Startpaar markiert: STOPP, L(A) ≠ L(B)','bis ein Durchlauf nichts neu markiert','Startpaar unmarkiert ⇒ L(A) = L(B)'];
+  let on=[],hit=-1,stp=-1;
+  switch(st.phase){case 'table':on=[0];break;case 'init':on=[1];break;case 'passStart':on=[2,3];break;
+    case 'pair':on=[3,4];if(st.verdict==='yes')hit=5;else on.push(5);if(st.startHit)stp=6;break;
+    case 'passEnd':on=[7];if(st.count===0)hit=7;break;case 'stopNeq':case 'counter':stp=6;break;case 'resultEq':case 'mapping':on=[8];break;}
+  $('pseudo').innerHTML=L.map((l,n)=>`<div class="${n===stp?'stp':n===hit?'hit':on.includes(n)?'on':''}"><span class="ln">${n}</span>${l.replace(/</g,'&lt;')}</div>`).join('');
+  const neq=st.phase==='stopNeq'||st.phase==='counter'||st.startHit,eq=done;
+  $('stop').className='stop'+(neq?' on n':eq?' on e':'');
+  $('stop1').className=neq?'on1':'';$('stop2').className=eq?'on2':'';
+}
+
+function render(animate=true){
+  const st=STEPS[idx],isPair=st.phase==='pair',latest=isPair?st.checks.at(-1):null;
+  const[ci,cj]=isPair?split(st.cur):[-1,-1];
+  /* Graph */
+  let path=null;
+  if(st.phase==='counter'){const w=st.marks[SK].word;path={nodes:new Set(),edges:[],ends:[]};
+    for(const s of START){let p=s;path.nodes.add(p);for(const c of w){path.edges.push([p,c]);p=D[p][c];path.nodes.add(p);}path.ends.push(p);}}
+  for(let q=0;q<N;q++){
+    let c='node';
+    if(st.phase==='intro'&&START.includes(q))c+=' start';
+    if(st.phase==='init')c+=FIN.has(q)?' fin':' nonfin';
+    if(st.phase==='stopNeq'&&START.includes(q))c+=' cur';
+    if(st.phase==='mapping')c+=' cls'+Math.min(CLS_OF[q],3);
+    if(st.phase==='resultEq'&&START.includes(q))c+=' acc';
+    if(path){if(path.ends.includes(q))c+=FIN.has(q)?' acc':' rej';else if(path.nodes.has(q))c+=' path';}
+    if(isPair){const isCur=q===ci||q===cj,isSucc=q===latest.ti||q===latest.tj;
+      if(isCur)c+=' cur';else if(isSucc)c+=' succ';if(isCur&&isSucc)c+=' succring';}
+    $('on-'+q).setAttribute('class',c);
+  }
+  graph.querySelectorAll('.edge').forEach(e=>{e.setAttribute('class',(isPair||path)?'edge dim':'edge');e.querySelector('path').setAttribute('marker-end','url(#mk-ink)');});
+  const hiE=(e,strong)=>{if(!e)return;e.setAttribute('class','edge '+(strong?'hi':'soft'));e.querySelector('path').setAttribute('marker-end',strong?'url(#mk-v)':'url(#mk-vs)');};
+  if(isPair)st.checks.forEach((c,n)=>[ci,cj].forEach(q=>hiE(origEdge(q,c.x),n===st.checks.length-1)));
+  if(path)path.edges.forEach(([p,c])=>hiE(origEdge(p,c),true));
+  $('gNote').textContent=st.phase==='counter'?'Lauf von w':'';
+
+  /* δ */
+  document.querySelectorAll('#delta td,#delta th').forEach(t=>t.classList.remove('on','onsoft','cur'));
+  if(isPair){[ci,cj].forEach(q=>$('dh-'+q).classList.add('cur'));
+    st.checks.forEach((c,n)=>{const cl=n===st.checks.length-1?'on':'onsoft';[ci,cj].forEach(q=>$(`d-${q}-${c.x}`).classList.add(cl));});}
+
+  /* Tabelle */
+  $('tableCard').classList.toggle('dim',st.phase==='intro');
+  const eqPhase=st.phase==='resultEq'||st.phase==='mapping';
+  const inPass=['passStart','pair','passEnd'].includes(st.phase);
+  const succK=[],succSoft=[];
+  if(isPair)st.checks.forEach((c,n)=>{if(c.status==='marked'||c.status==='unmarked')(n===st.checks.length-1?succK:succSoft).push(c.k2);});
+  for(const p of PAIRS){
+    const C=CELL[p.k],m=st.marks[p.k];let c='cell';
+    if(m)c+=' m r'+Math.min(m.round,3);else if(eqPhase)c+=' eq';else if(inPass&&st.checked.includes(p.k))c+=' checked';
+    if(p.k===st.cur||((st.phase==='stopNeq'||st.phase==='counter')&&p.k===SK))c+=' cur';
+    if(succK.includes(p.k))c+=' succ';else if(succSoft.includes(p.k))c+=' succsoft';
+    const pop=animate&&st.justMarked&&st.justMarked.includes(p.k),sweep=animate&&st.phase==='table';
+    C.g.setAttribute('class',c);C.g.style.animationDelay='';C.g.style.removeProperty('--d');
+    if(pop||sweep){void C.g.getBBox();
+      if(pop){C.g.classList.add('pop');if(st.phase==='init')C.g.style.animationDelay=(st.justMarked.indexOf(p.k)*0.13)+'s';}
+      if(sweep){C.g.style.setProperty('--d',(p.ord-1)*0.07+'s');C.g.classList.add('sweep');}}
+    C.mk.textContent=m?'×':eqPhase?'≡':'';C.rd.textContent=m?m.round:'';
+    C.ti.textContent=m?`${pl(p.k)} markiert in ${m.round===0?'Runde 0':'Durchlauf '+m.round} · Zeugenwort: ${m.word||'ε'}`:`${pl(p.k)} unmarkiert`;
+  }
+  rowL.forEach((t,i)=>t&&t.setAttribute('class','tl'+(i===ci||i===cj?' cur':'')));
+  colL.forEach((t,j)=>t.setAttribute('class','tl'+(j===ci||j===cj?' cur':'')));
+  gArr.innerHTML='';
+  if(isPair){
+    const[x0,y0]=cellXY(st.cur);const ax=x0+CS/2,ay=y0+CS/2;
+    st.checks.forEach((c,n)=>{
+      const strong=n===st.checks.length-1,cls='tarrow'+(strong?'':' soft'),mk=strong?'url(#tk-v)':'url(#tk-vs)';
+      if(c.status==='self')el('path',{class:cls,d:`M ${ax+10} ${y0+3} C ${ax+32} ${y0-28}, ${ax-32} ${y0-28}, ${ax-10} ${y0+3}`,'marker-end':mk},gArr);
+      else if(c.k2){const[x1,y1]=cellXY(c.k2);const bx=x1+CS/2,by=y1+CS/2;
+        const dx=bx-ax,dy=by-ay,L=Math.hypot(dx,dy),nx=-dy/L,ny=dx/L,cx=(ax+bx)/2+nx*26,cy=(ay+by)/2+ny*26;
+        const[ux,uy]=unit(ax,ay,cx,cy),[vx,vy]=unit(bx,by,cx,cy);
+        el('path',{class:cls,d:`M ${ax+ux*12} ${ay+uy*12} Q ${cx} ${cy} ${bx+vx*18} ${by+vy*18}`,'marker-end':mk},gArr);}
+    });
+  }
+  $('tNote').textContent=inPass?`Durchlauf ${st.pass}`:st.phase==='init'?'Runde 0':'';
+  panel(st);
+  $('stepNo').textContent=`Schritt ${idx+1} von ${STEPS.length}`;
+  $('counterTxt').textContent=`Schritt ${idx+1} / ${STEPS.length}`;
+  $('bPrev').disabled=idx===0;$('bFirst').disabled=idx===0;$('bNext').disabled=idx===STEPS.length-1;
+  renderTimeline();
+}
+
+/* Zeitleiste */
+let SEGS=[];
+function buildTimeline(){
+  SEGS=[];STEPS.forEach((s,n)=>{let g=SEGS.at(-1);if(!g||g.seg!==s.seg){g={seg:s.seg,from:n,to:n};SEGS.push(g);}g.to=n;});
+  const tl=$('timeline');tl.innerHTML='';
+  SEGS.forEach(g=>{const d=document.createElement('div');d.className='seg';d.style.flex=String(g.to-g.from+1);
+    d.innerHTML=`<div class="fill" style="background:${SEGCOL(g.seg)}"></div><div class="t"><span class="l">${SEGNAME(g.seg)}</span><span class="s">${SEGSHORT(g.seg)}</span></div>`;
+    d.addEventListener('click',e=>{const r=d.getBoundingClientRect();const f=(e.clientX-r.left)/r.width;stop();go(g.from+Math.min(g.to-g.from,Math.floor(f*(g.to-g.from+1))));});
+    g.el=d;tl.appendChild(d);});
+}
+function renderTimeline(){SEGS.forEach(g=>{const f=g.el.querySelector('.fill');const p=idx>g.to?1:idx<g.from?0:(idx-g.from+1)/(g.to-g.from+1);
+  f.style.width=(p*100)+'%';g.el.classList.toggle('done',idx>g.to);g.el.classList.toggle('active',idx>=g.from&&idx<=g.to);});}
+
+/* Steuerung */
+function go(n,anim=true){idx=Math.max(0,Math.min(STEPS.length-1,n));render(anim);}
+function next(){if(idx<STEPS.length-1)go(idx+1);else stop();}
+function prev(){go(idx-1);}
+function delayFor(st){const b=+$('speed').value;return ['passEnd','init','table','stopNeq','counter'].includes(st.phase)?b*1.7:['intro','passStart','resultEq'].includes(st.phase)?b*1.5:b;}
+function tick(){if(idx>=STEPS.length-1){stop();return;}next();timer=setTimeout(tick,delayFor(STEPS[idx]));}
+function play(){if(timer)return;if(idx>=STEPS.length-1)go(0);$('bPlay').textContent='❚❚ Pause';timer=setTimeout(tick,delayFor(STEPS[idx])*.5);}
+function stop(){clearTimeout(timer);timer=null;$('bPlay').textContent='▶ Abspielen';}
+function toggle(){timer?stop():play();}
+$('bNext').onclick=()=>{stop();next();};$('bPrev').onclick=()=>{stop();prev();};$('bFirst').onclick=()=>{stop();go(0);};$('bPlay').onclick=toggle;
+document.addEventListener('keydown',e=>{if(e.target.tagName==='SELECT')return;
+  if(e.key==='ArrowRight'||e.key==='PageDown'){stop();next();e.preventDefault();}
+  else if(e.key==='ArrowLeft'||e.key==='PageUp'){stop();prev();e.preventDefault();}
+  else if(e.key===' '){toggle();e.preventDefault();}
+  else if(e.key==='Home'){stop();go(0);}else if(e.key==='End'){stop();go(STEPS.length-1);}});
+function setMode(m,keep=true){
+  const cur=keep?STEPS[idx]:null;mode=m;STEPS=generate(m==='compact');
+  document.querySelectorAll('#mode button').forEach(b=>b.classList.toggle('on',b.dataset.m===m));
+  let n=0;if(cur){const c=STEPS.findIndex(s=>s.phase===cur.phase&&s.pass===cur.pass&&s.cur===cur.cur);n=c<0?0:c;}
+  buildTimeline();go(n,false);
+}
+function setExample(e){
+  stop();loadExample(e);buildAll();
+  document.querySelectorAll('#exsel button').forEach(b=>b.classList.toggle('on',+b.dataset.e===e));
+  setMode(mode,false);
+}
+document.querySelectorAll('#mode button').forEach(b=>b.onclick=()=>{stop();setMode(b.dataset.m);});
+document.querySelectorAll('#exsel button').forEach(b=>b.onclick=()=>setExample(+b.dataset.e));
+setExample(0);
+</script>
+</body>
+</html>
